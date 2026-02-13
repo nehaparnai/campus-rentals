@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="mb-4">Available Rental Items</h2>
+
+<a href="{{ url_for('list_item') }}" class="btn btn-primary mb-4">
+    + List New Item
+</a>
+
+<div class="row">
+
+    {% for item in items %}
+    <div class="col-md-4 mb-4">
+        <div class="card p-3 shadow-sm">
+            <h5>{{ item["item_name"] }}</h5>
+            <p><strong>₹{{ item["price_per_day"] }}</strong> per day</p>
+            <p class="text-muted">Owner: {{ item["owner_name"] }}</p>
+        </div>
+    </div>
+    {% else %}
+        <p>No items available yet.</p>
+    {% endfor %}
+
+</div>
+
+{% endblock %}

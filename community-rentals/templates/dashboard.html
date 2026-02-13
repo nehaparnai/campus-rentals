@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="mb-5 fw-bold">Dashboard</h2>
+
+<div class="row g-4">
+
+    <!-- RENT ITEMS -->
+    <div class="col-md-4">
+        <div class="card shadow p-4 text-center rounded-4 h-100">
+            <i class="bi bi-box-seam fs-1 text-primary"></i>
+            <h5 class="mt-3">Rent Items</h5>
+            <p>Browse available campus rentals.</p>
+            <a href="{{ url_for('items') }}" class="btn btn-primary rounded-3">
+                Explore Rentals
+            </a>
+            <a href="{{ url_for('list_item') }}" class="btn btn-outline-primary mt-2 rounded-3">
+                List an Item
+            </a>
+        </div>
+    </div>
+
+    <!-- MICRO TASKS -->
+    <div class="col-md-4">
+        <div class="card shadow p-4 text-center rounded-4 h-100">
+            <i class="bi bi-lightning-charge fs-1 text-success"></i>
+            <h5 class="mt-3">Micro Tasks</h5>
+            <p>Earn by helping your peers.</p>
+            <a href="{{ url_for('tasks') }}" class="btn btn-success rounded-3">
+                View Tasks
+            </a>
+            <a href="{{ url_for('post_task') }}" class="btn btn-outline-success mt-2 rounded-3">
+                Post a Task
+            </a>
+        </div>
+    </div>
+
+    <!-- ITEMS WANTED -->
+    <div class="col-md-4">
+        <div class="card shadow p-4 text-center rounded-4 h-100">
+            <i class="bi bi-search fs-1 text-warning"></i>
+            <h5 class="mt-3">Items Wanted</h5>
+            <p>See what others are looking for.</p>
+            <a href="{{ url_for('wanted') }}" class="btn btn-warning rounded-3">
+                View Requests
+            </a>
+            <a href="{{ url_for('post_wanted') }}" class="btn btn-outline-warning mt-2 rounded-3">
+                Post Request
+            </a>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
