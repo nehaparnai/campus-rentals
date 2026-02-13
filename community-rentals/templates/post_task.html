@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Post a Micro Task</h2>
+
+<form method="POST">
+    <div class="mb-3">
+        <label>Task Title</label>
+        <input type="text" name="title" class="form-control" placeholder="Print notes / Buy coffee / Parcel pickup" required>
+    </div>
+
+    <div class="mb-3">
+        <label>Description</label>
+        <textarea name="description" class="form-control" required></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label>Location</label>
+        <input type="text" name="location" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label>Reward (₹)</label>
+        <input type="number" name="reward" class="form-control" required>
+    </div>
+
+    <button class="btn btn-success">Post Task</button>
+</form>
+
+{% endblock %}

@@ -2,69 +2,73 @@ from flask import Flask, render_template, request, redirect, session, url_for, f
 import sqlite3
 import os
 
-app = Flask(__name__)
-app.secret_key = "campus_trust_key_99" # In production, use an environment variable
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static")
+)
+
+app.secret_key = "campus_trust_key_99"
 
 # -------------------------
-# DATABASE UTILITIES
+# DATABASE
 # -------------------------
+
 def get_db_connection():
-    # Using absolute path can sometimes prevent issues in different environments
     conn = sqlite3.connect("database.db")
-    conn.row_factory = sqlite3.Row  
+    conn.row_factory = sqlite3.Row
     return conn
+
 
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 1. Users Table
+    # USERS
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         trust_score INTEGER DEFAULT 100
-    )""")
+    )
+    """)
 
-    # 2. Micro-Tasks Table
+    # MICRO TASKS (UPDATED)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
         description TEXT NOT NULL,
         location TEXT,
         reward REAL NOT NULL,
         posted_by TEXT,
+        accepted_by TEXT,
         status TEXT DEFAULT 'open',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )""")
+    )
+    """)
 
-    # 3. Items for Rent (Supply)
+    # ITEMS
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         item_name TEXT NOT NULL,
+        description TEXT,
+        category TEXT,
         price_per_day REAL NOT NULL,
         owner_name TEXT,
         is_available BOOLEAN DEFAULT 1
-    )""")
-
-    # 4. Items Wanted (Demand)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS items_wanted (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_name TEXT NOT NULL,
-        max_budget REAL,
-        requester_name TEXT,
-        urgency TEXT, 
-        status TEXT DEFAULT 'open'
-    )""")
+    )
+    """)
 
     conn.commit()
     conn.close()
 
 # -------------------------
-# AUTHENTICATION ROUTES
+# AUTH
 # -------------------------
 
 @app.route("/", methods=["GET", "POST"])
@@ -79,100 +83,173 @@ def login():
         if not user:
             conn.execute("INSERT INTO users (name, email) VALUES (?, ?)", (name, email))
             conn.commit()
-        
+
         conn.close()
+
         session["user"] = name
         session["email"] = email
         return redirect(url_for("dashboard"))
 
     return render_template("login.html")
 
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
+
 @app.route("/dashboard")
 def dashboard():
-    if "user" not in session: return redirect(url_for("login"))
-    return render_template("dashboard.html")
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    user = conn.execute(
+        "SELECT trust_score FROM users WHERE name=?",
+        (session["user"],)
+    ).fetchone()
+    conn.close()
+
+    trust = user["trust_score"] if user else 100
+
+    return render_template("dashboard.html", trust=trust)
 
 # -------------------------
-# MICRO-TASK ROUTES
+# MICRO TASKS
 # -------------------------
 
 @app.route("/tasks")
 def tasks():
-    if "user" not in session: return redirect(url_for("login"))
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     conn = get_db_connection()
-    all_tasks = conn.execute("SELECT * FROM tasks WHERE status='open' ORDER BY created_at DESC").fetchall()
+    all_tasks = conn.execute(
+        "SELECT * FROM tasks ORDER BY created_at DESC"
+    ).fetchall()
     conn.close()
+
     return render_template("browse_tasks.html", tasks=all_tasks)
+
 
 @app.route("/post_task", methods=["GET", "POST"])
 def post_task():
-    if "user" not in session: return redirect(url_for("login"))
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     if request.method == "POST":
         conn = get_db_connection()
         conn.execute(
-            "INSERT INTO tasks (description, location, reward, posted_by) VALUES (?, ?, ?, ?)",
-            (request.form["description"], request.form["location"], request.form["reward"], session["user"])
+            "INSERT INTO tasks (title, description, location, reward, posted_by) VALUES (?, ?, ?, ?, ?)",
+            (
+                request.form["title"],
+                request.form["description"],
+                request.form["location"],
+                request.form["reward"],
+                session["user"]
+            )
         )
         conn.commit()
         conn.close()
+
         flash("Task posted successfully!")
         return redirect(url_for("tasks"))
+
     return render_template("post_task.html")
 
+
+@app.route("/accept_task/<int:task_id>")
+def accept_task(task_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    conn.execute(
+        "UPDATE tasks SET status='accepted', accepted_by=? WHERE id=? AND status='open'",
+        (session["user"], task_id)
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Task accepted!")
+    return redirect(url_for("tasks"))
+
+
+@app.route("/complete_task/<int:task_id>")
+def complete_task(task_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    task = conn.execute(
+        "SELECT * FROM tasks WHERE id=?",
+        (task_id,)
+    ).fetchone()
+
+    if task and task["accepted_by"] == session["user"]:
+        conn.execute(
+            "UPDATE tasks SET status='completed' WHERE id=?",
+            (task_id,)
+        )
+
+        conn.execute(
+            "UPDATE users SET trust_score = trust_score + 5 WHERE name=?",
+            (session["user"],)
+        )
+
+        conn.commit()
+
+    conn.close()
+
+    flash("Task completed! Trust increased.")
+    return redirect(url_for("tasks"))
+
 # -------------------------
-# RENTAL & WANTED ROUTES
+# RENTAL ITEMS (SIMPLE)
 # -------------------------
 
 @app.route("/items")
 def items():
-    if "user" not in session: return redirect(url_for("login"))
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     conn = get_db_connection()
-    available_items = conn.execute("SELECT * FROM items WHERE is_available = 1").fetchall()
+    items = conn.execute("SELECT * FROM items").fetchall()
     conn.close()
-    return render_template("browse_items.html", items=available_items)
+
+    return render_template("browse_items.html", items=items)
+
 
 @app.route("/list_item", methods=["GET", "POST"])
 def list_item():
-    if "user" not in session: return redirect(url_for("login"))
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     if request.method == "POST":
         conn = get_db_connection()
-        conn.execute("INSERT INTO items (item_name, price_per_day, owner_name) VALUES (?, ?, ?)",
-                     (request.form["item_name"], request.form["price"], session["user"]))
+        conn.execute(
+            "INSERT INTO items (item_name, description, category, price_per_day, owner_name) VALUES (?, ?, ?, ?, ?)",
+            (
+                request.form["item_name"],
+                request.form["description"],
+                request.form["category"],
+                request.form["price"],
+                session["user"]
+            )
+        )
         conn.commit()
         conn.close()
-        flash("Item listed for rent!")
+
+        flash("Item listed successfully!")
         return redirect(url_for("items"))
+
     return render_template("list_item.html")
 
-@app.route("/wanted")
-def wanted():
-    if "user" not in session: return redirect(url_for("login"))
-    conn = get_db_connection()
-    requests = conn.execute("SELECT * FROM items_wanted WHERE status='open'").fetchall()
-    conn.close()
-    return render_template("items_wanted.html", requests=requests)
-
-@app.route("/post_wanted", methods=["GET", "POST"])
-def post_wanted():
-    if "user" not in session: return redirect(url_for("login"))
-    if request.method == "POST":
-        conn = get_db_connection()
-        conn.execute("INSERT INTO items_wanted (item_name, max_budget, requester_name, urgency) VALUES (?, ?, ?, ?)",
-                     (request.form["item_name"], request.form["budget"], session["user"], request.form["urgency"]))
-        conn.commit()
-        conn.close()
-        flash("Your request has been posted to the campus!")
-        return redirect(url_for("wanted"))
-    return render_template("post_wanted_form.html")
-
 # -------------------------
-# RUN APP
+# RUN
 # -------------------------
+
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)

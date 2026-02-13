@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>List a New Item</h2>
+
+<form method="POST">
+
+    <div class="mb-3">
+        <label class="form-label">Item Name</label>
+        <input type="text" name="item_name" class="form-control" placeholder="Calculator / Bike / Helmet" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-control" placeholder="Condition, details..."></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Category</label>
+        <select name="category" class="form-control">
+            <option>Electronics</option>
+            <option>Books</option>
+            <option>Sports</option>
+            <option>Transport</option>
+            <option>Other</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Price Per Day (₹)</label>
+        <input type="number" name="price" class="form-control" required>
+    </div>
+
+    <button type="submit" class="btn btn-success">Add Item</button>
+
+</form>
+
+{% endblock %}
